@@ -1,7 +1,7 @@
 drupal-module-gstore
 ====================
 
-Drupal7 module implementing GSTORE JS API with leaflet.
+Drupal7 module utilizing EDAC's GSTORE API with leaflet maps.
 
 
 To Install:
