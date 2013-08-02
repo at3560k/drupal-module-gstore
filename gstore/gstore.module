@@ -1,0 +1,301 @@
+<?php
+
+/**
+ * @file
+ * Custom module for new Node type (GSTORE Map).
+ *
+ *  Copyright 2013 by Jason Brown (http://edac.unm.edu/2011/07/jason-brown/)
+ */
+
+
+/**
+ * @defgroup gstore Example: Node
+ * @ingroup gstore
+ * @{
+ * Define a node type holding a map of gstore query region
+ *
+ */
+
+/**
+ * Implements hook_help().
+ */
+function gstore_help($path, $arg) {
+  switch ($path)
+    {
+    case 'gstore/help':
+      $ret_val = "<h3>" . t("You can create new GSTORE Node nodes using the <a href='!nodeadd'>add form</a>.", array('!nodeadd' => url('node/add/gstore'))) . "</h3>";
+      return $ret_val;
+      break;
+    case 'admin/help#gstore':
+      $ret_val = "<h3>" . t("The GSTORE module provides a custom node type providing a map")
+          . "<br/>" . t("You can create new GSTORE Node nodes using the <a href='!nodeadd'>add form</a>.", array('!nodeadd' => url('node/add/gstore'))) . "</h3>";
+      return $ret_val;
+      break;
+    }
+}
+
+/**
+ * Implements hook_permission().
+ */
+function gstore_permission() {
+  return array(
+    'administer gstore' => array(
+      'title' => t('Administer GSTORE nodes'),
+      'description' => t('Perform administrative tasks on nodes')
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function gstore_menu() {
+  $items = array();
+
+  // Admin configuration group.
+  $items['admin/config/gstore'] = array(
+    'title' => 'GSTORE Query',
+    'description' => 'Administer GSTORE Queries',
+    // matches up with above permissions
+    'access arguments' => array('administer gstore'),
+  );
+
+  // Admin configuration - Settings
+  $items['admin/config/gstore/manage'] = array(
+    'title' => 'GStore Query Settings',
+    'description' => 'Manage Gstore Query default settings and configurations',
+    // matches up with above permissions
+    'access arguments' => array('administer gstore'),
+    // we leverage drupal's built in callbacks & form API...
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gstore_admin_settings_form')
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_form().
+ */
+function gstore_admin_settings_form($node, &$form_state) {
+  // form state is passed by reference to be manipulated
+  $form = array();
+
+  $form['overview'] = array(
+    '#markup' => t('This interface allows administrators to manage general GSTORE query settings'),
+    '#prefix' => '<p>',
+    '#suffix' => '</p>',
+  );
+
+  $form['map_properties'] = array(
+    '#title' => t('Map Dimensions'),
+    '#description' => t('Default dimensions of the map'),
+    '#type' => 'fieldset',
+    '#collapsible' => TRUE, // collapsible
+    '#collapsed' => FALSE // not by default
+  );
+
+  $form['map_properties']['gstore_map_height'] = array(
+    '#title' => t('Height'),
+    '#description' => t('Height (px)'),
+    '#type' => 'textfield',
+    '#default_value' => variable_get('gstore_default_map_height'),
+    '#required' => TRUE
+  );
+
+  $form['map_properties']['gstore_map_width'] = array(
+    '#title' => t('Width'),
+    '#description' => t('width (px)'),
+    '#type' => 'textfield',
+    '#default_value' => variable_get('gstore_default_map_width'),
+    '#required' => TRUE
+  );
+
+  $form['layer_properties'] = array(
+    '#title' => t('Map Layers'),
+    '#description' => t('Default Layers  for the map.'),
+    '#type' => 'fieldset',
+    '#collapsible' => TRUE, // collapsible
+    '#collapsed' => FALSE // not by default
+  );
+
+  $form['layer_properties']['gstore_wms_url'] = array(
+    '#title' => t('WMS Capabilities URL'),
+    '#description' => t('WMS Get Capabilities Request URL'),
+    '#type' => 'textfield',
+    '#default_value' => variable_get('gstore_default_wms_url'),
+    '#required' => TRUE
+  );
+
+  $form['layer_properties']['gstore_wms_layers'] = array(
+    '#title' => t('WMS Layer Names'),
+    '#description' => t('WMS Layers for Base map'),
+    '#type' => 'textfield',
+    '#default_value' => variable_get('gstore_default_wms_layers'),
+    '#required' => TRUE
+  );
+
+  // Select list zoom level
+  $options = range(0, 20, 1);
+  $options[0] = t('0 - Furthest');
+  $options[20] = t('20 - Closest');
+
+  $form['gstore_map_zoom'] = array(
+    '#title' => t('Map zoom'),
+    '#description' => t('Default level of zoom, between 0 and 20.'),
+    '#type' => 'select',
+    '#options' => $options,
+    //'#default_value' => 8,
+    '#default_value' => variable_get('gstore_default_map_zoom'),
+    '#required' => TRUE,
+  );
+
+  // This lets drupal build its own submit stuff  with generic msg
+  return system_settings_form($form);
+}
+
+/**
+ * Validates gstore admin settings
+ */
+function gstore_admin_settings_form_validate($form, &$form_state) {
+  // using dev module...
+  // dpm($form_state['values']);
+  return;
+
+
+  // TODO: later curl validation on URL and layer names and all the rest?
+  //$lat = $form_state['values']['gstore_default_center_lat'];
+  //if (! _gstore_validate_signed_degrees($lat)) {
+  //    form_set_error('gstore_default_center_lat', t('Invalid latitude; must be a signed degree (DDD.dddd).'));
+  //}
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function gstore_form_alter(&$form, &$form_state, $form_id) {
+  switch ($form_id)
+    {
+    case 'gstore_node_form':
+        {
+        //dpm($form);
+        $form['#validate'][] = 'gstores_gstore_node_form_validate';
+        break;
+        }
+    }
+}
+
+/**
+ * Validates gstore content type.
+ */
+function gstores_gstore_node_form_validate($form, &$form_state) {
+
+  //validate service url
+  $url = $form_state['values']['gstore_services_url'][LANGUAGE_NONE][0]['value'];
+  if (!_gstore_validate_service_URL($url)) {
+    form_set_error('gstore_wms_url', t('Invalid Service URL'));
+  }
+}
+
+/**
+ * Determine if a value is in signed degrees format
+ *
+ * @param string $value
+ *      Value to be tested
+ *
+ * @return boolean
+ *      TRUE if correctly formatted.
+ */
+function _gstore_validate_signed_degrees($value) {
+  $signed_degree_regex = '/^[+-]?\d+(\.\d+)?$/';
+  return preg_match($signed_degree_regex, $value) ? TRUE : FALSE;
+}
+
+/**
+ * Determine if geographic coordinate is within valid range
+ *
+ * @param string $value
+ *  value to be tested
+ *
+ * @return boolean
+ *  TRUE if between -180, and 180
+ */
+function _gstore_validate_geo_coord_range($value) {
+  return ((-180 <= $value) && ($value <= 180));
+}
+
+/**
+ * Determine if the service URL is valid
+ *
+ * @param string $url
+ *  url to be tested
+ *
+ *  @return boolean
+ *    TRUE if valid
+ */
+function _gstore_validate_service_URL($url) {
+  return True;
+  // TODO: ...
+}
+
+/**
+ * Implements hook_node_view().
+ */
+function gstore_node_view($node, $view_mode, $langcode) {
+  // Only our type of node
+  // I could be 'full', 'teaser',
+  //dpm($node);
+  if ($node->type == 'gstore' && $view_mode == 'full') {
+    $node->content['gstore_map'] = array(
+      '#markup' => theme('gstore_map', array(
+        'node' => $node,
+      )),
+      '#weight' => 100, // max
+    );
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function gstore_theme($existing, $type, $theme, $path) {
+  // None used, all required by theme
+  return array(
+    'gstore_map' => array(
+      'variables' => array('node' => NULL),
+    ),
+  );
+}
+
+/**
+ * GStore map theme function
+ */
+function theme_gstore_map($variables) {
+  // recv variables keywd
+  // We have no lat or long like other stuff...
+  $url = $variables['node']->gstore_services_url[LANGUAGE_NONE][0]['value'];
+  if ($url == '') {
+    return;
+  }
+
+  $domID = 'leaflet-map-canvas-' . $variables['node']->nid;
+
+  module_load_include('inc', 'gstore');
+
+  gstore_add_map(array(
+    'mapId' => $domID,
+    'servicesURL' => $url,
+    'options' => array(
+      'zoom' => (int) variable_get('gstore_default_map_zoom'),
+    )
+  ));
+
+  $output = '<br/>';
+  $output .= '<div id="' . $domID . '" style="width:600px; height:400px; border:1px solid green"></div>';
+  return $output;
+}
+
+/**
+ * @} End of "defgroup gstore".
+ */
+

@@ -1,0 +1,46 @@
+;  GSTORE Drupal Module
+;  Copyright (C) 2013  <Jason Brown>
+;
+;  This library is free software; you can redistribute it and/or
+;  modify it under the terms of the GNU Lesser General Public
+;  License as published by the Free Software Foundation; either
+;  version 2.1 of the License, or (at your option) any later version.
+;
+;  This library is distributed in the hope that it will be useful,
+;  but WITHOUT ANY WARRANTY; without even the implied warranty of
+;  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;  Lesser General Public License for more details.
+;
+;  You should have received a copy of the GNU Lesser General Public
+;  License along with this library; if not, write to the Free Software
+;  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+; 
+;  JBrown@edac.unm.edu
+
+name = GSTORE: Services API/Map
+description = Provides custom content-type to hit <a href='http://gstore.unm.edu/'>GSTORE services API</a> and display related information.
+core = 7.x
+package = EDAC
+version = 7.x-0.1-dev
+
+; can use these as comments
+; common naming conventions
+;   -dev
+;   -alpha (1st test)
+;   -beta  (feature complete)
+;   -rc    (release candidate)
+
+; points at /manage url we have made
+configure = admin/config/gstore/manage
+
+
+; NOTE:  This module based fairly heavily upon Jon Peck's drupal 7 training module
+;  available at lynda.com http://www.lynda.com/Drupal-tutorials/Drupal-7-Module-Development/110715-2.html
+;
+; and additionally upon the gmap3 utilities referenced in said module.  The
+; loader is a fairly direct port of the gmap3_tools into leaflet
+;   https://drupal.org/project/gmap3_tools
+; 
+; The leaflet folder is also under separate copyright
+;
+; As such, this module is released under LGPL v 2.1

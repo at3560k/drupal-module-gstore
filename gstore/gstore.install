@@ -1,0 +1,195 @@
+<?php
+
+/**
+ * @file
+ * gstore API Query Installaer
+ *
+ *  Copyright 2013 by Jason Brown (http://edac.unm.edu/2011/07/jason-brown/)
+ */
+
+/**
+ * Implements hook_install().
+ */
+function gstore_install() {
+
+  // Get localization function for installation as t() may not exist...
+  $t = get_t();
+
+  // Load our defaults.
+  module_load_include('inc', 'gstore');
+
+  // Set default variables.
+  variable_set('gstore_default_map_height', GSTORE_DEFAULT_MAP_HEIGHT);
+  variable_set('gstore_default_map_width', GSTORE_DEFAULT_MAP_WIDTH);
+  variable_set('gstore_default_map_zoom', GSTORE_DEFAULT_MAP_ZOOM);
+  variable_set('gstore_default_wms_layers', GSTORE_DEFAULT_WMS_LAYERS);
+  variable_set('gstore_default_wms_url', GSTORE_DEFAULT_WMS_URL);
+  variable_set('gstore_map_enabled', 1);
+
+  // Give user feedback.
+  drupal_set_message($t('GSTORE variables created.'));
+
+  // Content type definition.
+  $content_type = array(
+    'type' => 'gstore', // machine name, all lowercase with spaces instead of _
+    'name' => $t('GSTORE Query API'), // human readable
+    'description' => $t('Use <i>GSTORE Query API</i> to embed a map showing a GSTORE set from a services API URL.'),
+    'title_label' => $t('Researcher Name'),
+    'base' => 'node_content', // we use a node as our base
+    'custom' => TRUE, // indicate we were programmatically created
+  );
+
+  // Set remaining definitions with defaults
+  $node_type = node_type_set_defaults($content_type);
+
+  // Save the content type.
+  node_type_save($node_type);
+
+  // Add a field for the body.
+  node_add_body_field($node_type, $t('Description'));
+
+  // Create fields
+  // name lowercase, 32ch max, unique withing Drupal install !!!
+  $fields = array();
+
+  $fields['gstore_services_url'] = array(
+    'field_name' => 'gstore_services_url',
+    'type' => 'text',
+    // Optional
+    'cardinality' => 1, // number of values that can be stored in field
+    'settings' => array(
+      'max_length' => 160,
+    ),
+  );
+
+  $fields['gstore_map_height'] = array(
+    'field_name' => 'gstore_map_height',
+    'type' => 'number_integer',
+    'settings' => array(
+      'max_length' => 4,
+    ),
+  );
+
+  $fields['gstore_map_width'] = array(
+    'field_name' => 'gstore_map_width',
+    'type' => 'number_integer',
+    'settings' => array(
+      'max_length' => 4,
+    ),
+  );
+
+  // Later on maybe we can hint at a bbox, a zoom, or whateva
+
+  foreach ($fields as $field) {
+    field_create_field($field);
+  }
+
+  // now need field_create_instancer
+  // Create field instances
+  $instances = array();
+
+  $instances['gstore_services_url'] = array(
+    'field_name' => 'gstore_services_url',
+    'label' => $t('GSTORE Services API URL'),
+    'description' => $t('URL to datasets/{UUID}/services.json.'),
+    'required' => TRUE,
+    'widget' => array(
+      'type' => 'text_textfield',
+    ),
+    'settings' => array(
+      'text_processing' => 0 // ?
+    ),
+    'display' => array(
+      'default' => array(
+        'type' => 'hidden',
+      ),
+    ),
+  );
+
+  $instances['gstore_map_height'] = array(
+    'field_name' => 'gstore_map_height',
+    'label' => $t('Map Height'),
+    'description' => $t('Map Height (px).'),
+    'widget' => array(
+      'type' => 'text_textfield',
+    ),
+    'settings' => array(
+      'text_processing' => 0 // 0, a number
+    ),
+    'display' => array(
+      'default' => array(
+        'type' => 'hidden',
+      ),
+    ),
+  );
+
+  $instances['gstore_map_width'] = array(
+    'field_name' => 'gstore_map_width',
+    'label' => $t('Map Width'),
+    'description' => $t('Map Width (px).'),
+    'widget' => array(
+      'type' => 'text_textfield',
+    ),
+    'settings' => array(
+      'text_processing' => 0 // 0, a number
+    ),
+    'display' => array(
+      'default' => array(
+        'type' => 'hidden',
+      ),
+    ),
+  );
+
+  foreach ($instances as $instance) {
+    $instance['entity_type'] = 'node';
+    $instance['bundle'] = 'gstore';
+    field_create_instance($instance);
+  }
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function gstore_uninstall() {
+
+  // Get localization function for installation as t() may not exist...
+  $t = get_t();
+
+  // Delete variables
+  variable_del('gstore_default_map_height');
+  variable_del('gstore_default_map_width');
+  variable_del('gstore_default_map_zoom');
+  variable_del('gstore_default_wms_layers');
+  variable_del('gstore_default_wms_url');
+  variable_del('gstore_map_enabled');
+
+  drupal_set_message($t('GSTORE variables deleted.'));
+
+  // Get all node ids with gstore content type.
+  $sql_query = "SELECT nid ";
+  $sql_query .= "FROM {node} ";
+  $sql_query .= "WHERE {node}.type = :type ";
+  $result = db_query($sql_query, array(':type' => 'gstore'));
+
+  $nids = array();
+  foreach ($result as $row) {
+    $nids[] = $row -> nid;
+  }
+
+  // Delete all gstore content
+  node_delete_multiple($nids);
+  drupal_set_message($t('GSTORE content removed'));
+
+  // Remove all fields and field instances
+  foreach (field_info_instances('node', 'gstore') as $field_name => $instance) {
+    field_delete_instance($instance);
+  }
+  drupal_set_message($t('GStore field and field instances removed'));
+
+  // Delete content type
+  node_type_delete('gstore');
+  drupal_set_message($t('GSTORE content type removed'));
+
+  // Cleanup deleted fields
+  field_purge_batch(1000);
+}
